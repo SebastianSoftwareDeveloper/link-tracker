@@ -30,7 +30,7 @@ export class CreateLinkDto {
    **/
   @ApiProperty({
     description: 'Fecha y hora de expiración opcional para el link (formato ISO 8601 con zona horaria, ej. 2025-07-10T23:59:59-03:00 o 2025-07-10T23:59:59Z). Después de esta fecha, el link no será accesible.',
-    example: '2025-07-10T23:59:59+00:00',
+    example: '2025-07-10T13:00:00-03:00',
     required: false,
   })
   @IsOptional()
