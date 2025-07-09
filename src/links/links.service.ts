@@ -57,8 +57,7 @@ export class LinksService {
     }
 
     if (createLinkDto.expiredAt) {
-      // Convertir la cadena de fecha a un objeto Date
-      newLink.expiredAt = new Date(createLinkDto.expiredAt.replace(' ', 'T')); // Formato ISO para Date
+      newLink.expiredAt = new Date(createLinkDto.expiredAt);
     }
 
     this.links.push(newLink);

@@ -53,30 +53,33 @@ describe('LinksService', () => {
       expect(link.expiredAt).toBeUndefined();
     });
 
-    it('debería crear un link con fecha de expiración', () => {
-      const expirationDate = '2030-01-01 10:00:00';
-      const createDto: CreateLinkDto = { url: 'https://example.com/con-exp', expiredAt: expirationDate };
+    it('debería crear un link con fecha de expiración (ISO 8601 con offset)', () => {
+      // Fecha en Argentina (UTC-3)
+      const expirationDateString = '2030-01-01T10:00:00-03:00';
+      const createDto: CreateLinkDto = { url: 'https://example.com/con-exp', expiredAt: expirationDateString };
       const link = service.create(createDto);
 
       expect(link).toBeDefined();
       expect(link.originalUrl).toBe(createDto.url);
       expect(link.password).toBeUndefined();
-      expect(link.expiredAt).toEqual(new Date(expirationDate.replace(' ', 'T')));
+      expect(link.expiredAt).toEqual(new Date(expirationDateString));
+      // Opcional: verificar el equivalente UTC si quieres ser explícito
+      // expect(link.expiredAt?.toISOString()).toBe('2030-01-01T13:00:00.000Z');
     });
 
-    it('debería crear un link con contraseña y fecha de expiración', () => {
-      const expirationDate = '2030-01-01 10:00:00';
+    it('debería crear un link con contraseña y fecha de expiración (ISO 8601 UTC)', () => {
+      const expirationDateString = '2030-01-01T10:00:00Z';
       const createDto: CreateLinkDto = {
         url: 'https://example.com/todas-las-caracteristicas',
         password: 'superSecure',
-        expiredAt: expirationDate,
+        expiredAt: expirationDateString,
       };
       const link = service.create(createDto);
 
       expect(link).toBeDefined();
       expect(link.originalUrl).toBe(createDto.url);
       expect(link.password).toBe('superSecure');
-      expect(link.expiredAt).toEqual(new Date(expirationDate.replace(' ', 'T')));
+      expect(link.expiredAt).toEqual(new Date(expirationDateString));
     });
   });
 
@@ -111,32 +114,23 @@ describe('LinksService', () => {
     });
 
     it('debería lanzar NotFoundException si el link ha expirado', () => {
-      // Definir una fecha de expiración en la zona horaria LOCAL del ambiente de prueba.
-      // Esta fecha será la que el servicio interpretará cuando cree el link.
-      const localExpirationDate = new Date();
-      localExpirationDate.setFullYear(localExpirationDate.getFullYear() - 1);
-      localExpirationDate.setSeconds(localExpirationDate.getSeconds() + 5);
+      // Definir una fecha de expiración en el pasado (ISO 8601 con offset)
+      const expiredDateString = '2024-01-01T10:00:00-03:00'; // 10 AM en Argentina
+      const expiredDate = new Date(expiredDateString); // Internamente es 13:00:00Z
 
-      // Formatear esta fecha LOCAL para el DTO.
-      // El servicio la parseará como una fecha local.
-      const formatNumber = (num: number) => num.toString().padStart(2, '0');
-      const expiredAtString = `${localExpirationDate.getFullYear()}-${formatNumber(localExpirationDate.getMonth() + 1)}-${formatNumber(localExpirationDate.getDate())} ${formatNumber(localExpirationDate.getHours())}:${formatNumber(localExpirationDate.getMinutes())}:${formatNumber(localExpirationDate.getSeconds())}`;
-
-      // Establecer el tiempo del sistema (falso) a un momento ANTES de la expiración LOCAL.
-      // Esto es crucial para que el link se cree como NO expirado inicialmente.
-      jest.setSystemTime(new Date(localExpirationDate.getTime() - 1000));
-
-      // Crear el link. Su 'expiredAt' se basará en la interpretación LOCAL de 'expiredAtString'.
+      // Crear el link con esta fecha de expiración
       const expiredLinkDto: CreateLinkDto = {
-        url: 'https://example.com/expirado-local-tz',
-        expiredAt: expiredAtString,
+        url: 'https://example.com/expired-iso',
+        expiredAt: expiredDateString,
       };
       const expiredLink = service.create(expiredLinkDto);
+      // Verificar que la fecha almacenada es la correcta en UTC
+      expect(expiredLink.expiredAt?.toISOString()).toBe(expiredDate.toISOString());
 
-      // Avanzar el tiempo del sistema (falso) a un momento CLARAMENTE después de la expiración LOCAL.
-      // 'new Date()' en el servicio usará este tiempo falso.
-      jest.setSystemTime(new Date(localExpirationDate.getTime() + 1000));
- 
+      // Establecer el tiempo del sistema (falso) a un momento CLARAMENTE después de la expiración (en UTC)
+      // Si expiredDate es 13:00:00Z, establecemos el tiempo a 13:00:01Z
+      jest.setSystemTime(new Date(expiredDate.getTime() + 1000)); // 1 segundo después
+
       // Ahora, la comparación 'new Date() > expiredLink.expiredAt' debería ser verdadera.
       expect(() => service.getOriginalUrlAndTrackClick(expiredLink.shortCode)).toThrow(NotFoundException);
       expect(() => service.getOriginalUrlAndTrackClick(expiredLink.shortCode)).toThrow(`Link con código corto "${expiredLink.shortCode}" ha expirado y no se puede redireccionar.`);
@@ -207,7 +201,7 @@ describe('LinksService', () => {
       passwordProtectedLink = service.create({ url: 'https://example.com/stats2', password: 'pass' });
       const futureDate = new Date();
       futureDate.setFullYear(futureDate.getFullYear() + 1);
-      expiredLink = service.create({ url: 'https://example.com/stats3', expiredAt: futureDate.toISOString().slice(0, 19).replace('T', ' ') });
+      expiredLink = service.create({ url: 'https://example.com/stats3', expiredAt: futureDate.toISOString() });
       service.invalidateLink(createdLink.shortCode);
     });
 
